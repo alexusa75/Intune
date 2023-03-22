@@ -153,9 +153,9 @@ If($AllPolicies){
             $_intuneSettings = $gpoPolicySetting.intuneSettingUriList
             $_intuneSettings = ($_intuneSettings -join "-")
             if($_intuneSettings.Count -gt 0){
-                Write-Host "$($_intuneSettings) Count - $($_intuneSettings.Count)  Setting Name: $($gpoPolicySetting.settingName)" -ForegroundColor Yellow
+                #Write-Host "$($_intuneSettings) Count - $($_intuneSettings.Count)  Setting Name: $($gpoPolicySetting.settingName)" -ForegroundColor Yellow
             }
-            $AllSettings += $gpoPolicySetting | Select-Object *,@{n="_IntuneSettings";e={"$($_intuneSettings)"}},@{n="PolicyName";e={"$($policy.displayName)"}},@{n="PolicyID";e={"$($policy.id)"}},@{n="Compare Setting Name_Value_ValueType_Category";e={"$($gpoPolicySetting.settingName)_$($gpoPolicySetting.settingValue)_$($gpoPolicySetting.settingValueType)_$($gpoPolicySetting.settingCategory)"}},@{n="DefinitionExist";e={"$($definition)"}}
+            $AllSettings += $gpoPolicySetting | Select-Object *,@{n="_IntuneSettings";e={"$($_intuneSettings)"}},@{n="PolicyName";e={"$($policy.displayName)"}},@{n="PolicyID";e={"$($policy.id)"}},@{n="Compare_Setting_Name_Value_ValueType_Category";e={"$($gpoPolicySetting.settingName)_$($gpoPolicySetting.settingValue)_$($gpoPolicySetting.settingValueType)_$($gpoPolicySetting.settingCategory)"}},@{n="DefinitionExist";e={"$($definition)"}}
 
         }
 
@@ -172,7 +172,7 @@ If($AllPolicies){
     $conf = $false
     ForEach($all in $AllSettings){
         $dupl = $AllSettings | ?{($_.settingName -eq $($all.settingName)) -AND ($_.PolicyID -ne $all.PolicyID)}
-        $checkdup = $AllSettings | ?{$_.Compare -eq $all.Compare}
+        $checkdup = $AllSettings | ?{$_.Compare_Setting_Name_Value_ValueType_Category -eq $all.Compare_Setting_Name_Value_ValueType_Category}
         If($checkdup.Count -gt 1){$duplicate = $true}else{$duplicate = $false}
         if($dupl){
             $conflict = ""
