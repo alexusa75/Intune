@@ -18,7 +18,14 @@
 param (
     [Parameter()]
     [ValidateNotNullorEmpty()]
-    [string]$CSVOutput = [Environment]::GetFolderPath("Desktop") + "\gpopoliciesanalysis.csv"
+    [string]$CSVOutput = [Environment]::GetFolderPath("Desktop") + "\gpopoliciesanalysis.csv",
+    [Parameter(Mandatory = $false)]
+    [switch]$csvExportPolicieNames,
+    [Parameter(Mandatory = $false)]
+    [switch]$csvImport,
+    [Parameter(Mandatory = $false)]
+    [ValidateNotNullorEmpty()]
+    [string]$csvpath = $env:TEMP  + "\gpopoliciesanalysis_Names.csv"
 )
 
 
@@ -29,7 +36,6 @@ param (
 #Import-Module Microsoft.Graph.Intune
 Connect-MsGraph | out-null
 #Disconnect-MgGraph
-
 
 ###############
 #  Functions  #
@@ -111,19 +117,77 @@ function Get-Token {
     Return $tokenResponse | Out-Null
 }
 
-
 ########################################
 #  Get Intune Uploaded Group Policies  #
 ########################################
 try{
-    $uriAll = "https://graph.microsoft.com/beta/deviceManagement/groupPolicyMigrationReports"
-    $AllPolicies = (Invoke-MSGraphRequest -Url $uriAll -HttpMethod GET).value
-    Write-Host "We found the following GPO Migration Reports:" -ForegroundColor Yellow
-    $AllPolicies.displayName
+    $uriAll = 'https://graph.microsoft.com/beta/deviceManagement/groupPolicyMigrationReports?$select=displayName'
+    $AllPoliciesNames = (Invoke-MSGraphRequest -Url $uriAll -HttpMethod GET).value
+    #Write-Host "We found the following GPO Migration Reports:" -ForegroundColor Yellow
+    #$AllPolicies.displayName
 }
 catch {
     Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
 }
+
+$Policies = $AllPoliciesNames.displayName
+
+If($csvExportPolicieNames){
+    If($csvpath){
+        $Policies | Select-Object @{Name = 'PolicyName';Expression={$_}} | Export-Csv -Path $csvpath -NoTypeInformation
+        invoke-item $csvpath
+        break
+        #exit
+    }else{
+        Write-Host "Use the parameter -csvpath to specify the csv file path " -ForegroundColor Red -BackgroundColor Yellow
+        break
+        #exit
+    }
+
+}elseif ($csvImport){
+    If($csvpath){
+        $Policiescsv = Import-Csv $csvpath
+        If($Policiescsv){
+            $c = 0
+            #$last = $Policiescsv.Count
+            $policyFilter = ""
+            ForEach($policsv in $Policiescsv){
+                $c++
+                if($c -eq 1){
+                    $policyFilter += "(displayName eq '$($policsv.PolicyName)') "
+                }else{
+                    $policyFilter += "or (displayName eq '$($policsv.PolicyName)') "
+                }
+            }
+            try{
+                $uri = 'https://graph.microsoft.com/beta/deviceManagement/groupPolicyMigrationReports?filter='
+                $filter = "$($policyFilter)"
+                $filter = [System.Web.HttpUtility]::UrlEncode($filter.Trim())
+                #$uriAll = 'https://graph.microsoft.com/beta/deviceManagement/groupPolicyMigrationReports?$filter=' + "$($policyFilter)"
+                #$uriAll = $uri,$filter -join '?'
+                $uriAll = $uri + $filter
+                $AllPolicies = (Invoke-MSGraphRequest -Url $uriAll -HttpMethod GET).value
+            }catch{
+                Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
+            }
+        }
+    }else{
+        Write-Host "Use the parameter -csvpath to specify the csv file path " -ForegroundColor Red -BackgroundColor Yellow
+        #exit
+    }
+}else{
+    try{
+        $uriAll = 'https://graph.microsoft.com/beta/deviceManagement/groupPolicyMigrationReports'
+        $AllPolicies = (Invoke-MSGraphRequest -Url $uriAll -HttpMethod GET).value
+        #Write-Host "We found the following GPO Migration Reports:" -ForegroundColor Yellow
+        #$AllPolicies.displayName
+    }
+    catch {
+        Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
+    }
+}
+
+
 
 ##############################################################################################
 #  Intune Group Policies Definitions (Administrative Template Configuration Profile options  #
