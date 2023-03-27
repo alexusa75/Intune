@@ -20,7 +20,7 @@ param (
     [ValidateNotNullorEmpty()]
     [string]$CSVOutput = [Environment]::GetFolderPath("Desktop") + "\gpopoliciesanalysis.csv",
     [Parameter(Mandatory = $false)]
-    [switch]$csvExportPolicieNames,
+    [switch]$csvExport,
     [Parameter(Mandatory = $false)]
     [switch]$csvImport,
     [Parameter(Mandatory = $false)]
@@ -132,7 +132,7 @@ catch {
 
 $Policies = $AllPoliciesNames.displayName
 
-If($csvExportPolicieNames){
+If($csvExport){
     If($csvpath){
         $Policies | Select-Object @{Name = 'PolicyName';Expression={$_}} | Export-Csv -Path $csvpath -NoTypeInformation
         invoke-item $csvpath
