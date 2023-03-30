@@ -132,6 +132,7 @@ catch {
 
 $Policies = $AllPoliciesNames.displayName
 
+Add-Type -AssemblyName System.Web
 If($csvExport){
     If($csvpath){
         $Policies | Select-Object @{Name = 'PolicyName';Expression={$_}} | Export-Csv -Path $csvpath -NoTypeInformation
