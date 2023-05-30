@@ -518,7 +518,7 @@ for ($i = 0; $i -lt $Devices.Length; $i += $batchSize){
     Write-Host "    Collecing Location information from $($batchSize) devices from Batch $([int]($i/$batchSize))" -ForegroundColor Cyan
     ForEach($device2 in $devicesLcation){
         #Write-Host "Device with Location Information $($device2.serialNumber)" -ForegroundColor Cyan
-        Start-Sleep -Seconds 5
+        #Start-Sleep -Seconds 5
         $results,$longitude,$latitude,$altitude = Get-Location -DeviceId $device2.id -SerialNumber $device2.serialNumber
         If($results -eq 'Success'){
             $global:DevicesBatchTemp | ?{$_.id -eq "$($device2.id)"} |
