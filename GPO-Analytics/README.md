@@ -25,4 +25,4 @@ The file will have the following fields:
 - `Conflict with` -> What GPO has conflict with.
 
 ## Additionally I'm adding a Power BI report if you would like to analyze the GPO setting in a different way
-![Alt text](/Image/Power%20BI_Image.png)
+![Alt text](Intune/GPO-Analytics/Image/Power%20BI_Image.png)
