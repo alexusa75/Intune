@@ -26,3 +26,5 @@ The file will have the following fields:
 
 ## Additionally I'm adding a Power BI report if you would like to analyze the GPO setting in a different way
 ![](GPO-Analytics/Image/PowerBiImage.png)
+
+<img src="GPO-Analytics/Image/PowerBiImage.png">
