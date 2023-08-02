@@ -22,7 +22,7 @@ The file will have the following fields:
 - `Definition` -> This is to let you know if there is any "Administrative Template" Windows 10 Configuration profile template.
 - `Duplicate` -> If the setting has a duplicate with any other GPO.
 - `Conflict` -> If the setting has any conflict with any other GPO.
-- `Conflict with` -> What GPO has conflict with.
+- `Conflict with` -> What GPO has a conflict with?
 
 ## Additionally I'm adding a Power BI report if you would like to analyze the GPO setting in a different way
-![](GPO-Analytics/Image/Power%20BI_Image.png)
+![](GPO-Analytics/Image/PowerBiImage.png)
