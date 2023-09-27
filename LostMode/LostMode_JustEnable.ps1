@@ -64,7 +64,7 @@ Function MyJWTToken{
         [string]
         $token
     )
-    if (!$token.Contains(".") -or !$token.StartsWith("eyJ")) { Write-Error "Invalid token" -ErrorAction Stop }else{Write-Host "Good Token"}
+    if (!$token.Contains(".") -or !$token.StartsWith("eyJ")) { Write-Error "Invalid token" -ErrorAction Stop } #else{Write-Host "Good Token"}
 
     # Token
     foreach ($i in 0..1) {
@@ -174,6 +174,7 @@ Function Get-DisabledLostModeStatus{
         Return "Error: $ex"
     }
 }
+
 Function Get-LostModeEnable{
     [CmdletBinding()]
     Param(
@@ -381,14 +382,14 @@ Function Disable-LostModedueToError{
                 Write-Log ERROR -Message "Error to disable Lost Mode in Stage 2 to Device: $($device2.serialNumber)" -logfile $logs
             }
 }
-
+clear
 
 ##############################
 #  Connection and Variables  #
 ##############################
 #Install-Module Microsoft.Graph.Intune
 #Import-Module Microsoft.Graph.Intune
-#Install-Module get-JWTDetails
+#Install-Module get-JWTDetails -> You don't have to install this module
 
 $AppId = "fa9a8af1-5f19-45b6-b957-744255ea9cc0"
 $client_secret = "5Fs8Q~AILt5JwMW4KtWR3DQmjKrzRpAUrKqx4bQS"
@@ -403,6 +404,7 @@ $logs = $OutputFolder + "\logs.csv"
 $CSVOutput = $OutputFolder + "\AlliOSSupervise.csv"
 $finalResult = $OutputFolder + "\FinalResults.csv"
 $LostModeStuckedOutput = $OutputFolder + "\LostModeStuck.csv"
+$listOfDevices = $OutputFolder + "\listOfDevices.csv"
 
 
 ###################################
@@ -410,7 +412,9 @@ $LostModeStuckedOutput = $OutputFolder + "\LostModeStuck.csv"
 ###################################
 Get-AccessToken
 
-$alliOSSupervise = Get-IntuneManagedDevice -Filter ("operatingSystem eq 'iOS'") -Select id,azureADDeviceId,deviceName,manufacturer,Model,isSupervised,imei,serialNumber,managedDeviceOwnerType,phoneNumber,operatingSystem,lastSyncDateTime | Where-Object {($_.AzureADDeviceId -ne '00000000-0000-0000-0000-000000000000') -and ($_.isSupervised -eq 'true')} | Get-MSGraphAllPages
+##$alliOSSupervise = Get-IntuneManagedDevice -Filter ("operatingSystem eq 'iOS'") -Select id,azureADDeviceId,deviceName,manufacturer,Model,isSupervised,imei,serialNumber,managedDeviceOwnerType,phoneNumber,operatingSystem,lastSyncDateTime | Where-Object {($_.AzureADDeviceId -ne '00000000-0000-0000-0000-000000000000') -and ($_.isSupervised -eq 'true')} | Get-MSGraphAllPages
+
+$alliOSSupervise = Import-Csv -Path $listOfDevices
 
 $alliOSSupervise | select *,
     @{n='Status';e={""}},
@@ -430,171 +434,78 @@ Write-Log INFO -Message "Started - Devices $($CountDevices)" -logfile $logs
 $global:DevicesBatchTemp = @()
 $DevicesLockTemp = @()
 $LostModeStuckTemp = @()
+$c = 0
+#####################
+#  Enable Lost Mode  #
+######################
+foreach($device in $Devices){
+    $c++
+    Write-Progress -Activity "$($device.serialNumber)" -Status "$c of $($CountDevices.count)" -PercentComplete $(($c/$($CountDevices.count))*100)
+    Get-AccessToken
+    $exist  = Get-IntuneManagedDevice -managedDeviceId $device.id -Select id,serialNumber,AzureADDeviceId,isSupervised,lastSyncDateTime | Where-Object {($_.AzureADDeviceId -ne '00000000-0000-0000-0000-000000000000') -and ($_.isSupervised -eq 'true')}
 
-
-$batchSize = 10
-for ($i = 0; $i -lt $Devices.Length; $i += $batchSize){
-    # Get the current batch of data
-    $Devicesbatch = $Devices[$i..($i + $batchSize - 1)]
-    $c = 0
-    $err = 0
-    $24 = 0
-    Write-Host "Started the analysis of $($batchSize) devices from Batch $([int]($i/$batchSize))" -ForegroundColor Green
-    ######################
-    #  Enable Lost Mode  #
-    ######################
-    foreach($device in $Devicesbatch){
-        Get-AccessToken
-        $exist = Get-IntuneManagedDevice -Filter ("serialNumber eq '$($device.serialNumber)'") -Select id,serialNumber,AzureADDeviceId,isSupervised,lastSyncDateTime | Where-Object {($_.AzureADDeviceId -ne '00000000-0000-0000-0000-000000000000') -and ($_.isSupervised -eq 'true')}
-        If($exist){
-            $existcount = @($exist).count
-            IF($existcount -eq 1){
-                $Date = (Get-Date).ToUniversalTime()
-                $LastSyntTime = ($Date - ($exist.lastSyncDateTime))
-                IF($LastSyntTime.Hours -lt 24){
-                    try {
-                        $LostModeEnable = Get-LostModeEnable -DeviceId $device.id -SerialNumber $device.serialNumber
-                        If($LostModeEnable -ne 'enabled'){
-                            Enable-LostMode -DeviceId $device.id -SerialNumber $device.serialNumber
-                            $c++
-                            $device.Status = "1-EnabledLostMode"
-                            $global:DevicesBatchTemp += $device
-                            #$DevicesLockTemp += $device
-                            Write-Log DEBUG -Message "LostMode sent to the Device: $($exist.serialNumber)" -logfile $logs
-                        }else{
-                            $c++
-                            $device.Status = "1-WasArreadyEnabledLostMode"
-                            $global:DevicesBatchTemp += $device
-                            #$DevicesLockTemp += $device
-                            Write-Log DEBUG -Message "LostMode was already enabled on the Device: $($exist.serialNumber)" -logfile $logs
-                        }
-
-                    }
-                    catch {
-                        $err++
-                        $ex = $error[0].Exception
-                        $device.Status = "1-ErrorEnablingLostMode"
-                        $global:DevicesBatchTemp += $device
-                        #$DevicesLockTemp += $device
-                        Write-Log FATAL -Message "Error enabling LostMode to Device: $($exist.serialNumber) Error: $($ex) " -logfile $logs
-                    }
-                }Else{
-                    $24++
-                    $device.Status = "1-Morethan24hours"
+    #$exist = Get-IntuneManagedDevice -Filter ("serialNumber eq '$($device.serialNumber)'") -Select id,serialNumber,AzureADDeviceId,isSupervised,lastSyncDateTime | Where-Object {($_.AzureADDeviceId -ne '00000000-0000-0000-0000-000000000000') -and ($_.isSupervised -eq 'true')}
+    If($exist){
+        $existcount = @($exist).count
+        IF($existcount -eq 1){
+            $Date = (Get-Date).ToUniversalTime()
+            $LastSyntTime = ($Date - ($exist.lastSyncDateTime))
+            try {
+                $LostModeEnable = Get-LostModeEnable -DeviceId $device.id -SerialNumber $device.serialNumber
+                If($LostModeEnable -ne 'enabled'){
+                    Enable-LostMode -DeviceId $device.id -SerialNumber $device.serialNumber
+                    $c++
+                    $device.Status = "EnabledLostMode"
                     $global:DevicesBatchTemp += $device
-                    #$DevicesLockTemp += $device
-                    Write-Log WARN -Message "Device more than 24 hours since last sync - Device: $($exist.serialNumber)" -logfile $logs
+                    $DevicesLockTemp += $device
+                    Write-Log DEBUG -Message "LostMode sent to the Device: $($exist.serialNumber) - LastSyncTime: $($LastSyntTime)" -logfile $logs
+                }else{
+                    $c++
+                    $device.Status = "WasArreadyEnabledLostMode"
+                    $global:DevicesBatchTemp += $device
+                    $DevicesLockTemp += $device
+                    Write-Log DEBUG -Message "LostMode was already enabled on the Device: $($exist.serialNumber) - LastSyncTime: $($LastSyntTime)" -logfile $logs
                 }
-            }else{
-                $ee++
-                Write-Host "More than 1 active device with the same serial: $($device.serialNumber)"
-                $device.Status = '1-DuplicateSerialNumer'
+            }
+            catch {
+                $err++
+                $ex = $error[0].Exception
+                $device.Status = "ErrorEnablingLostMode"
                 $global:DevicesBatchTemp += $device
-                #$DevicesLockTemp += $device
-                Write-Log ERROR -Message "There are more than one active device with the following Serial Number: $($exist.serialNumber)" -logfile $logs
+                $DevicesLockTemp += $device
+                Write-Log FATAL -Message "Error enabling LostMode to Device: $($exist.serialNumber) Error: $($ex) - LastSyncTime: $($LastSyntTime)" -logfile $logs
             }
         }else{
-            $err++
-            $device.Status = '1-NoExist'
+            $ee++
+            Write-Host "More than 1 active device with the same Id: $($device.id)"
+            $device.Status = 'DuplicateIdNumer'
             $global:DevicesBatchTemp += $device
-            #$DevicesLockTemp += $device
-            Write-Log ERROR -Message "There is not a device with the following serial number: $($device.serialNumber)" -logfile $logs
+            $DevicesLockTemp += $device
+            Write-Log ERROR -Message "There are more than one active device with the following Id Number: $($exist.id)" -logfile $logs
         }
+    }else{
+        $err++
+        $device.Status = 'NoExist'
+        $global:DevicesBatchTemp += $device
+        $DevicesLockTemp += $device
+        Write-Log ERROR -Message "There is not a device with the following Id number: $($device.id)" -logfile $logs
     }
-    Write-Host "    Progress:
-        Enabled Lost Mode: $c
-        More than 24 hours since last sync: $24
-        Errors: $err
-    " -ForegroundColor Yellow
-
-    ###############################################
-    #  Send the Locate device command to devices  #
-    ###############################################
-    Write-Host "    Sending Locate Device commands to $($batchSize) devices from Batch $([int]($i/$batchSize))" -ForegroundColor Cyan
-    $devicesEnabled = $global:DevicesBatchTemp | ?{($_.Status -eq '1-EnabledLostMode') -or ($_.Status -eq '1-WasArreadyEnabledLostMode')}
-    ForEach($device1 in $devicesEnabled){
-        #Start-Sleep -Seconds 60
-        $LostStatus = Get-LostModeStatus -DeviceId $device1.id -SerialNumber $device1.serialNumber
-        If($LostStatus -eq 'done'){
-            $locate = Locate-Device -DeviceId $device1.id -SerialNumber $device1.serialNumber
-            If($locate -eq 'Success'){
-                $global:DevicesBatchTemp | ?{$_.id -eq "$($device1.id)"} |
-                    ForEach-Object{
-                                    $_.Status = '2-LocationReady'
-                                    #$_.longitude = $longitude
-                                    #$_.latitude = $latitude
-                                    #$_.altitude = $altitude
-                                }
-
-            }else{
-                #$global:DevicesBatchTemp | ?{$_.id -eq "$($device1.id)"} | ForEach-Object{$_.Status = "2-LoctionComandFailed-$($locate)"}
-                Disable-LostModedueToError -DeviceId $device1.id -SerialNumber $device1.serialNumber -Stage 2 -Note "2-LoctionNoReady-$($locate)"
-                Write-Log ERROR -Message "Locate command failed on Device: $($device1.serialNumber)" -logfile $logs
-            }
-
-        }else{
-            #$global:DevicesBatchTemp | ?{$_.id -eq "$($device1.id)"} | ForEach-Object{$_.Status = "2-LocationNotReady-$($LostStatus)"}
-            Disable-LostModedueToError -DeviceId $device1.id -SerialNumber $device1.serialNumber -Stage 2 -Note "2-LocationNotReady-$($LostStatus)"
-            Write-Log ERROR -Message "The device Location information was not ready, we disabled Lost Mode, no more actions Device: $($device1.serialNumber)" -logfile $logs
-        }
-    }
-
-    ##################################################
-    #  Get the location iformation from the devices  #
-    ##################################################
-    $devicesLcation = $global:DevicesBatchTemp | ?{$_.Status -eq '2-LocationReady'}
-    Write-Host "    Collecing Location information from $($batchSize) devices from Batch $([int]($i/$batchSize))" -ForegroundColor Cyan
-    ForEach($device2 in $devicesLcation){
-        #Write-Host "Device with Location Information $($device2.serialNumber)" -ForegroundColor Cyan
-        #Start-Sleep -Seconds 5
-        $results,$longitude,$latitude,$altitude = Get-Location -DeviceId $device2.id -SerialNumber $device2.serialNumber
-        If($results -eq 'Success'){
-            $global:DevicesBatchTemp | ?{$_.id -eq "$($device2.id)"} |
-                ForEach-Object{
-                                $_.Status = '3-LocationCollected'
-                                $_.longitude = $longitude
-                                $_.latitude = $latitude
-                                $_.altitude = $altitude
-                            }
-            $disable = Disable-LostMode -DeviceId $device2.id -SerialNumber $device2.serialNumber
-            If($disable -eq 'Success'){
-                $global:DevicesBatchTemp | ?{$_.id -eq "$($device2.id)"} | ForEach-Object{$_.Status = "3-LostModeDisabled-AllDone"}
-                Write-Log DEBUG -Message "Lost Mode disabled to Device: $($device2.serialNumber)" -logfile $logs
-            }else{
-                $global:DevicesBatchTemp | ?{$_.id -eq "$($device2.id)"} | ForEach-Object{$_.Status = "3-ErrorDisblingLostMode"}
-                Write-Log ERROR -Message "Error to disable Lost Mode to Device: $($device2.serialNumber)" -logfile $logs
-            }
-         }else{
-            Disable-LostModedueToError -DeviceId $device2.id -SerialNumber $device2.serialNumber -Stage 3 -Note "3-NoLocationDataAvailabe-$($results)"
-            #$global:DevicesBatchTemp | ?{$_.id -eq "$($device2.id)"} | ForEach-Object{$_.Status = "NoLocationDataAvailabe-$($results)"}
-            Write-Log ERROR -Message "The device Location information was not ready, we disabled Lost Mode no more actions Device: $($device2.serialNumber)" -logfile $logs
-         }
-    }
-
-    ###################################################################################
-    #  Last Loop to triple check if there is any device with Lost Mode still Enabled  #
-    ###################################################################################
-    Write-Host "    Validating if the Lost Mode was disabled to $($batchSize) devices from Batch $([int]($i/$batchSize))" -ForegroundColor Cyan
-    ForEach($device3 in $DevicesBatchTemp){
-        $LostModeCheck = Get-LostModeEnable -DeviceId $device3.id -SerialNumber $device3.serialNumber
-        If($LostModeCheck -eq 'enabled'){
-            $LostModeStuckTemp += $device3
-        }
-    }
-
-    ##############################################
-    #  Exporting the information for each Batch  #
-    ##############################################
-    If($LostModeStuckTemp){
-        $LostModeStuckTemp | Export-Csv -Path $LostModeStuckedOutput -NoTypeInformation -Append
-        $LostModeStuckTemp = @()
-    }
-    $DevicesLockTemp += $global:DevicesBatchTemp
-    $finalresultTemp = $finalResult.Split('.')[0] + "_Temp." + $finalResult.Split('.')[1]
-    $global:DevicesBatchTemp | Export-Csv -Path $finalresultTemp -NoTypeInformation -Append
-    $global:DevicesBatchTemp = @()
-    Write-Host "Finished Batch Number -- $([int]($i/$batchSize)) - DateTime: $(Get-Date)`n" -ForegroundColor Magenta
 }
 
 $DevicesLockTemp | Export-Csv -Path $finalResult -NoTypeInformation
 
+
+<#
+
+Get-LostModeEnable -DeviceId '5de03504-9e6a-4a80-9a99-ae7bc3630603' -SerialNumber 'XR44Q0R6X9' #-> This will give us if the the command was sent or not.
+Enable-LostMode -DeviceId '5de03504-9e6a-4a80-9a99-ae7bc3630603' -SerialNumber 'XR44Q0R6X9'
+Get-LostModeStatus -DeviceId '5de03504-9e6a-4a80-9a99-ae7bc3630603' -SerialNumber 'XR44Q0R6X9' #-> This will give us the LockMode Status done for instance.
+Locate-Device -DeviceId '5de03504-9e6a-4a80-9a99-ae7bc3630603' -SerialNumber 'XR44Q0R6X9'
+Get-Location -DeviceId '5de03504-9e6a-4a80-9a99-ae7bc3630603' -SerialNumber 'XR44Q0R6X9'
+Disable-LostMode -DeviceId '5de03504-9e6a-4a80-9a99-ae7bc3630603' -SerialNumber 'XR44Q0R6X9'
+Get-DisabledLostModeStatus -DeviceId '5de03504-9e6a-4a80-9a99-ae7bc3630603' -SerialNumber 'XR44Q0R6X9'
+
+
+https://graph.microsoft.com/beta/deviceManagement/manageddevices('5de03504-9e6a-4a80-9a99-ae7bc3630603')?$select=deviceactionresults,managementstate,lostModeState,deviceRegistrationState,ownertype
+
+#>
