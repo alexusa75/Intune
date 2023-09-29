@@ -163,54 +163,47 @@ $authority = "https://login.windows.net/$tenant"
 
 $OutputFolder = "C:\temp"
 $logs = $OutputFolder + "\logs.csv"
-$Enrollmentaccounts = @("alextech3@alextech.us","w3653@alexusapc.us")
 
 Get-AccessToken
-ForEach($account in $Enrollmentaccounts){
-    $uri = "deviceManagement/managedDevices?" + '$select' + "=id,azureADDeviceId,azureADRegistered,deviceName,userPrincipalName,usersLoggedOn&" + '$filter' + "=operatingSystem eq 'Windows' and userPrincipalName eq '$($account)'"
-    $uri = [System.Uri]::EscapeUriString($uri)
-    $allWindowsDevices = Get-MsGraphData -Path $uri
-    $allWindowsDevices.Count
-    $userId = @()
-    #$allWindowsDevices.usersLoggedOn.userId
-    ### From here
-    ForEach($device in $allWindowsDevices){
-        $deviceID = $device.id
-        $countusers = $device.usersLoggedOn.userId.Count
-        IF($countusers -gt 1){
-            $userId = ($device.usersLoggedOn | Sort-Object -Property lastLogOnDateTime -Descending)[0].userId #Last logged On user
-        }else{
-            $userId = $device.usersLoggedOn.userId
-        }
-        If($userId){
-            $uri = "https://graph.microsoft.com/beta/deviceManagement/managedDevices('$($deviceID)')/users?" + '$select=id'
-            Get-AccessToken
-            $primary = (Invoke-MSGraphRequest -Url $uri -HttpMethod GET).value.id #Primary User
-            If($userId -ne $primary){
-                $uri ="https://graph.microsoft.com/beta/deviceManagement/managedDevices('$deviceID')/users/`$ref"
-                $Body = @{"@odata.id" = "https://graph.microsoft.com/beta/users/$userId"}
-                $Method = "POST"
-                try{
-                    Write-Host "Success Device: $($device.deviceName)" -ForegroundColor Yellow
-                    Get-AccessToken
-                    Invoke-MSGraphRequest -HttpMethod $Method -Url $uri -Content $Body
-                    Write-Log DEBUG -Message "Primary user set to Device $($device.deviceName)" -logfile $logs
-                }catch{
-                    Write-Host "Errors Device: $($device.deviceName)" -ForegroundColor Red
-                    $ex = $error[0].Exception
-                    Write-Log FATAL -Message "Error to set the Primary user to the device $($device.deviceName), Error: $($ex)" -logfile $logs
-                    #Write-Host "Error: $($ex)" -ForegroundColor red -BackgroundColor Yellow
-                }
-            }else{
-                Write-Host "The last logged on user is the same than the Primary user on the Device: $($device.deviceName)" -ForegroundColor Yellow
-                Write-Log -Message "The last logged on user is the same than the Primary user on the Device: $($device.deviceName)" -Level WARN -logfile $logs
+$uri = "deviceManagement/managedDevices?" + '$select' + "=id,azureADDeviceId,azureADRegistered,deviceName,userPrincipalName,usersLoggedOn&" + '$filter' + "=operatingSystem eq 'Windows' and userPrincipalName eq 'alextech3@alextech.us'"
+$uri = [System.Uri]::EscapeUriString($uri)
+$allWindowsDevices = Get-MsGraphData -Path $uri
+#$allWindowsDevices.Count
+#$allWindowsDevices.usersLoggedOn.userId
+
+### From here
+ForEach($device in $allWindowsDevices){
+    $deviceID = $device.id
+    $userId = $device.usersLoggedOn.userId #Last logged On user
+    If($userId){
+        $uri = "https://graph.microsoft.com/beta/deviceManagement/managedDevices('$($deviceID)')/users?" + '$select=id'
+        Get-AccessToken
+        $primary = (Invoke-MSGraphRequest -Url $uri -HttpMethod GET).value.id #Primary User
+        If($userId -ne $primary){
+            $uri ="https://graph.microsoft.com/beta/deviceManagement/managedDevices('$deviceID')/users/`$ref"
+            $Body = @{"@odata.id" = "https://graph.microsoft.com/beta/users/$userId"}
+            $Method = "POST"
+            try{
+                Write-Host "Success Device: $($device.deviceName)" -ForegroundColor Yellow
+                Get-AccessToken
+                Invoke-MSGraphRequest -HttpMethod $Method -Url $uri -Content $Body
+                Write-Log DEBUG -Message "Primary user set to Device $($device.deviceName)" -logfile $logs
+            }catch{
+                Write-Host "Errors Device: $($device.deviceName)" -ForegroundColor Red
+                $ex = $error[0].Exception
+                Write-Log FATAL -Message "Error to set the Primary user to the device $($device.deviceName), Error: $($ex)" -logfile $logs
+                #Write-Host "Error: $($ex)" -ForegroundColor red -BackgroundColor Yellow
             }
         }else{
-            Write-Host "No user ID information in the usersLoggedOn attribute Device: $($device.deviceName)" -ForegroundColor Red
-            Write-Log ERROR -Message "No user ID information in the usersLoggedOn attribute Device $($device.deviceName)" -logfile $logs
+            Write-Host "The last logged on user is the same than the Primary user on the Device: $($device.deviceName)" -ForegroundColor Yellow
+            Write-Log -Message "The last logged on user is the same than the Primary user on the Device: $($device.deviceName)" -Level WARN -logfile $logs
         }
+    }else{
+        Write-Host "No user ID information in the usersLoggedOn attribute Device: $($device.deviceName)" -ForegroundColor Red
+        Write-Log ERROR -Message "No user ID information in the usersLoggedOn attribute Device $($device.deviceName)" -logfile $logs
     }
 }
+
 
 
 
