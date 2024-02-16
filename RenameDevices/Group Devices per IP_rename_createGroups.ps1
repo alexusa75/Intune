@@ -505,9 +505,9 @@ function Set-DeviceName {
 #Install-Module get-JWTDetails
 
 
-$AppId = "fa9a8af1-5f19-45b6-b957-744255ea9cc0"
-$client_secret = "5Fs8Q~AILt5JwMW4KtWR3DQmjKrzRpAUrKqx4bQS"
-$Tenant = "alexusapcus.onmicrosoft.com"
+$AppId = "xxxxxxxxxxxxxxxx"
+$client_secret = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+$Tenant = "tenantName.onmicrosoft.com"
 $authority = "https://login.windows.net/$tenant"
 
 
@@ -520,9 +520,9 @@ $authority = "https://login.windows.net/$tenant"
 ###################################
 Get-AccessToken
 
-$csvPath = "C:\Alex\devicesGroupIPRange.csv"
+$csvPath = "C:\temp\devicesGroupIPRange.csv"
 $csvIPRanges = Import-Csv -Path $csvPath
-$logfile = "C:\Alex\Rename_Devices_Log" + [DateTime]::Now.ToString("yyyy_MM_dd_HH_mm_ss") + ".csv"
+$logfile = "C:\temp\Rename_Devices_Log" + [DateTime]::Now.ToString("yyyy_MM_dd_HH_mm_ss") + ".csv"
 
 
 ## First validate that IP addresse Rages don't overlap:
