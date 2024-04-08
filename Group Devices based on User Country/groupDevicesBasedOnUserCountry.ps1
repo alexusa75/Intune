@@ -296,9 +296,9 @@ function Set-ManageDeviceName {
 
 
 ## Authentication using an AppID
-$AppId = "fa9a8af1-5f19-45b6-b957-744255ea9cc0"
-$client_secret = "5Fs8Q~AILt5JwMW4KtWR3DQmjKrzRpAUrKqx4bQS"
-$Tenant = "alexusapcus.onmicrosoft.com"
+$AppId = "XXXXXXXXXXXXXXXXXXXXXXXXXXX"
+$client_secret = "XXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+$Tenant = "<tenantname>.onmicrosoft.com"
 $authority = "https://login.windows.net/$tenant"
 
 
