@@ -112,7 +112,8 @@ function Test-CsvFile {
 function Connect-ToGraph {
     try {
         # Connect to Microsoft Graph with interactive sign-in
-        Connect-MgGraph -Scopes "DeviceManagementManagedDevices.ReadWrite.All","DeviceManagementManagedDevices.Read.All" > $null
+        #Connect-MgGraph -Scopes "DeviceManagementManagedDevices.ReadWrite.All","DeviceManagementManagedDevices.Read.All" > $null
+        Connect-MgGraph -NoWelcome
         # Check if the connection was successful
         $graphContext = Get-MgContext
         If ($graphContext -eq $null) {
@@ -136,7 +137,10 @@ function Get-DeviceBySerialNumber {
 
     try {
         # Filter for managed devices by serial number
-        $devices = Get-MgDeviceManagementManagedDevice -Filter "serialNumber eq '$SerialNumber'" | ?{$_.AzureAdRegistered -eq $true}
+        $uri = "https://graph.microsoft.com/beta/deviceManagement/managedDevices?`$filter=serialNumber eq '$($serialNumber)'"
+        $devices_temp = Invoke-MgGraphRequest -Method GET -Uri $uri -ErrorAction Stop
+        $devices = $testing.Value | Select-Object -Property id, deviceName, serialNumber, azureAdRegistered | ?{$_.AzureAdRegistered -eq $true}
+        #$devices = Get-MgDeviceManagementManagedDevice -Filter "serialNumber eq '$SerialNumber'" | ?{$_.AzureAdRegistered -eq $true}
         return $devices
     }
     catch {
@@ -250,3 +254,53 @@ foreach ($device in $devices) {
 # Disconnect from Microsoft Graph
 Disconnect-MgGraph
 Write-Host "`nScript execution completed." -ForegroundColor Green
+
+
+
+<# Few helpful commands to test the script
+get-mgcontext
+
+
+$serialNumber = "XR44Q0R6X9"
+$deviceName = "ABM-XR44Q0R6X9-iPhone_123"
+$deviceId = "2c21bdde-7b25-44cf-94a4-1d98330eaa7f"
+
+Connect-MgGraph -Scopes "DeviceManagementManagedDevices.ReadWrite.All","DeviceManagementManagedDevices.Read.All", "DeviceManagementManagedDevices.PrivilegedOperations.All" -NoWelcome
+
+$testing2 = Get-MgDeviceManagementManagedDevice -Filter "serialNumber eq '$SerialNumber'" | ?{$_.AzureAdRegistered -eq $true}
+
+Get-DeviceBySerialNumber -SerialNumber $serialNumber
+
+Set-DeviceName -DeviceId $deviceId -NewName $deviceName -serialNumber $serialNumber
+
+Send-DeviceSync -DeviceId $deviceId
+
+
+# Example usage of the Graph API to set device name
+$body = @{
+    deviceName = $deviceName
+} | ConvertTo-Json
+$uri = "https://graph.microsoft.com/beta/deviceManagement/managedDevices('$DeviceId')/setDeviceName"
+Invoke-MgGraphRequest -Method POST -Uri $uri -Body $body -ContentType "application/json" -ErrorAction Stop
+
+
+# Direct Graph API call to sync device
+$uri = "https://graph.microsoft.com/beta/deviceManagement/managedDevices('$DeviceId')/syncDevice"
+Invoke-MgGraphRequest -Method POST -Uri $uri -ErrorAction Stop
+
+
+# Example usage of the Graph API to get device by serial number
+$uri = "https://graph.microsoft.com/beta/deviceManagement/managedDevices?`$filter=serialNumber eq '$($serialNumber)'"
+$testing = Invoke-MgGraphRequest -Method GET -Uri $uri -ErrorAction Stop
+
+$testing3 = $testing.Value | Select-Object -Property id, deviceName, serialNumber, azureAdRegistered | ?{$_.AzureAdRegistered -eq $true} #| Format-Table -AutoSize
+
+($testing.value).Count
+
+
+$testing3 | get-member
+
+
+$testing3.id
+
+#>
