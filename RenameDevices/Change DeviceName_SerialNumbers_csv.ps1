@@ -139,7 +139,7 @@ function Get-DeviceBySerialNumber {
         # Filter for managed devices by serial number
         $uri = "https://graph.microsoft.com/beta/deviceManagement/managedDevices?`$filter=serialNumber eq '$($serialNumber)'"
         $devices_temp = Invoke-MgGraphRequest -Method GET -Uri $uri -ErrorAction Stop
-        $devices = $testing.Value | Select-Object -Property id, deviceName, serialNumber, azureAdRegistered | ?{$_.AzureAdRegistered -eq $true}
+        $devices = $devices_temp.Value | Select-Object -Property id, deviceName, serialNumber, azureAdRegistered | ?{ $_.AzureAdRegistered -eq $true }
         #$devices = Get-MgDeviceManagementManagedDevice -Filter "serialNumber eq '$SerialNumber'" | ?{$_.AzureAdRegistered -eq $true}
         return $devices
     }
@@ -158,18 +158,29 @@ function Set-DeviceName {
     )
 
     try {
-        # Create the request body
-        $body = @{
-            deviceName = $NewName
-        } | ConvertTo-Json
 
-        # Use the correct endpoint with the setDeviceName action
-        $uri = "https://graph.microsoft.com/beta/deviceManagement/managedDevices('$DeviceId')/setDeviceName"
-        Invoke-MgGraphRequest -Method POST -Uri $uri -Body $body -ContentType "application/json" -ErrorAction Stop
+        # First check if any device already has the requested name
+        $existingDeviceUri = "https://graph.microsoft.com/beta/deviceManagement/managedDevices?`$filter=deviceName eq '$NewName'"
+        $existingDevice = Invoke-MgGraphRequest -Method GET -Uri $existingDeviceUri -ErrorAction Stop
+        if ($existingDevice.Value.Count -gt 0) {
+            # Create the request body
+            $body = @{
+                deviceName = $NewName
+            } | ConvertTo-Json
 
-        Write-Host "Device name updated to $NewName for device ID $DeviceId" -ForegroundColor Green
-        Write-Log -Level INFO -Message "Renaming device ID $($intuneDevice.Id) from $($intuneDevice.DeviceName) to $($device.NewDeviceName)" -logfile $csvLogPath
-        return $true
+            # Use the correct endpoint with the setDeviceName action
+            $uri = "https://graph.microsoft.com/beta/deviceManagement/managedDevices('$DeviceId')/setDeviceName"
+            Invoke-MgGraphRequest -Method POST -Uri $uri -Body $body -ContentType "application/json" -ErrorAction Stop
+
+            Write-Host "Device name updated to $NewName for device ID $DeviceId" -ForegroundColor Green
+            Write-Log -Level INFO -Message "Renaming device ID $($intuneDevice.Id) from $($intuneDevice.DeviceName) to $($device.NewDeviceName)" -logfile $csvLogPath
+            return $true
+        }
+        else {
+            Write-Host "Device with name $NewName already exists. Skipping rename for device ID $DeviceId" -ForegroundColor Yellow
+            Write-Log -Level WARN -Message "Device with name $NewName already exists. Skipping rename for device ID $DeviceId" -logfile $csvLogPath
+            return $false
+        }
     }
     catch {
         Write-Host "Failed to update device name for device ID $DeviceId SN: $serialNumber" -ForegroundColor Red
@@ -245,7 +256,8 @@ foreach ($device in $devices) {
         if ($syncSuccess) {
             Write-Host "Successfully processed device: Serial Number $($device.SerialNumber), New Name $($device.NewDeviceName)" -ForegroundColor Green
             Write-Log -Level INFO -Message "Successfully processed device: Serial Number $($device.SerialNumber), New Name $($device.NewDeviceName)" -logfile $csvLogPath
-        }else {
+        }
+        else {
             Write-Host "Failed to send sync action for device ID $($intuneDevice.Id) SN: $device.SerialNumber" -ForegroundColor Red
             Write-Log -Level ERROR -Message "Failed to send sync action for device ID $($intuneDevice.Id) SN: $device.SerialNumber" -logfile $csvLogPath
         }
@@ -261,15 +273,22 @@ Write-Host "`nScript execution completed." -ForegroundColor Green
 get-mgcontext
 
 
-$serialNumber = "XR44Q0R6X9"
-$deviceName = "ABM-XR44Q0R6X9-iPhone_123"
-$deviceId = "2c21bdde-7b25-44cf-94a4-1d98330eaa7f"
+$serialNumber = "R9AN612W7DJ"
+$deviceName = "New Name123"
+$deviceId = "22813004-a0fe-414a-b751-c68897a88f34"
+
+$NewName = "TestingDeviceName123"
+
+
+
 
 Connect-MgGraph -Scopes "DeviceManagementManagedDevices.ReadWrite.All","DeviceManagementManagedDevices.Read.All", "DeviceManagementManagedDevices.PrivilegedOperations.All" -NoWelcome
 
 $testing2 = Get-MgDeviceManagementManagedDevice -Filter "serialNumber eq '$SerialNumber'" | ?{$_.AzureAdRegistered -eq $true}
 
-Get-DeviceBySerialNumber -SerialNumber $serialNumber
+$testing =
+$testing = Get-DeviceBySerialNumber -SerialNumber $serialNumber
+$testing.getType()
 
 Set-DeviceName -DeviceId $deviceId -NewName $deviceName -serialNumber $serialNumber
 
