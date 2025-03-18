@@ -162,7 +162,7 @@ function Set-DeviceName {
         # First check if any device already has the requested name
         $existingDeviceUri = "https://graph.microsoft.com/beta/deviceManagement/managedDevices?`$filter=deviceName eq '$NewName'"
         $existingDevice = Invoke-MgGraphRequest -Method GET -Uri $existingDeviceUri -ErrorAction Stop
-        if ($existingDevice.Value.Count -gt 0) {
+        if ($existingDevice.Value.Count -eq 0) {
             # Create the request body
             $body = @{
                 deviceName = $NewName
@@ -277,7 +277,7 @@ $serialNumber = "R9AN612W7DJ"
 $deviceName = "New Name123"
 $deviceId = "22813004-a0fe-414a-b751-c68897a88f34"
 
-$NewName = "TestingDeviceName123"
+$NewName = "TestingDeviceName123888"
 
 
 
