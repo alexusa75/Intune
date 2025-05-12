@@ -254,8 +254,8 @@ foreach ($device in $devices) {
     # Send sync action
     $syncSuccess = Send-DeviceSync -DeviceId $intuneDevice.Id
     if ($syncSuccess) {
-        Write-Host "Successfully processed device: Serial Number $($device.SerialNumber), New Name $($device.NewDeviceName)" -ForegroundColor Green
-        Write-Log -Level INFO -Message "Successfully processed device: Serial Number $($device.SerialNumber), New Name $($device.NewDeviceName)" -logfile $csvLogPath
+        Write-Host "Successfully processed device: Serial Number $($device.SerialNumber), Device Name: $($device.NewDeviceName)" -ForegroundColor Green
+        Write-Log -Level INFO -Message "Successfully processed device: Serial Number $($device.SerialNumber), Device Name: $($device.NewDeviceName)" -logfile $csvLogPath
     }
     else {
         Write-Host "Failed to send sync action for device ID $($intuneDevice.Id) SN: $device.SerialNumber" -ForegroundColor Red
