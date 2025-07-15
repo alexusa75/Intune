@@ -58,9 +58,9 @@
 
 
 
-#$CsvPath = "C:\temp\SerialNumbers.csv"
-#$SingleGroupId = "18cc3227-6342-40d4-b73d-3c33feb1096d"
-#$WhatIf = $false
+$CsvPath = "C:\temp\SerialNumbers.csv"
+$SingleGroupId = "18cc3227-6342-40d4-b73d-3c33feb1096d"
+$WhatIf = $false
 
 # Function to connect to Microsoft Graph
 function Connect-ToMSGraph {
