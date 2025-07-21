@@ -210,7 +210,7 @@ function Set-DeviceName {
     )
 
     try {
-        $NewName = "Sysco-iPhone-Serial-$serialNumber"
+        #$NewName = "Sysco-iPhone-Serial-$serialNumber"
         # First check if any device already has the requested name
         $existingDeviceUri = "https://graph.microsoft.com/beta/deviceManagement/managedDevices?`$filter=deviceName eq '$NewName'"
         $existingDevice = Invoke-MgGraphRequest -Method GET -Uri $existingDeviceUri -ErrorAction Stop
@@ -324,7 +324,7 @@ try {
         }
 
         # Rename device
-        $NewName = "Sysco-" + $intuneDevice.deviceType + "-Serial:" + $serialNumber
+        $NewName = "Sysco-" + $intuneDevice.deviceType + "-Serial-" + $serialNumber
         $renameSuccess = Set-DeviceName -DeviceId $intuneDevice.Id -NewName $NewName -serialNumber $serialNumber
         if (-not $renameSuccess) {
             Write-Warning "Failed to rename device $serialNumber"
