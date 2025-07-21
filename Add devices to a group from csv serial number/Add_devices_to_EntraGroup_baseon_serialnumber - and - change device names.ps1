@@ -58,8 +58,8 @@
 
 
 
-$CsvPath = "C:\temp\SerialNumbers.csv"
-$SingleGroupId = "18cc3227-6342-40d4-b73d-3c33feb1096d"
+$CsvPath = "C:\Alex\Serial\SerialNumbers.csv"
+$SingleGroupId = "18cc3227-6342-40d4-b73d-3c33feb1096f"
 $WhatIf = $false
 
 # Function to connect to Microsoft Graph
@@ -222,21 +222,19 @@ function Set-DeviceName {
 
             # Use the correct endpoint with the setDeviceName action
             $uri = "https://graph.microsoft.com/beta/deviceManagement/managedDevices('$DeviceId')/setDeviceName"
-            Invoke-MgGraphRequest -Method POST -Uri $uri -Body $body -ContentType "application/json" -ErrorAction Stop
+            #Invoke-MgGraphRequest -Method POST -Uri $uri -Body $body -ContentType "application/json" -ErrorAction Stop
+            Write-Host "Invoke-MgGraphRequest Renaming device ID $DeviceId to $NewName" -ForegroundColor Cyan
 
             Write-Host "Device name updated to $NewName for device ID $DeviceId" -ForegroundColor Green
-            Write-Log -Level INFO -Message "Renaming device ID $($intuneDevice.Id) from $($intuneDevice.DeviceName) to $($device.NewDeviceName)" -logfile $csvLogPath
             return $true
         }
         else {
             Write-Host "Device with name $NewName already exists. Skipping rename for device ID $DeviceId" -ForegroundColor Yellow
-            Write-Log -Level WARN -Message "Device with name $NewName already exists. Skipping rename for device ID $DeviceId" -logfile $csvLogPath
             return $false
         }
     }
     catch {
         Write-Host "Failed to update device name for device ID $DeviceId SN: $serialNumber" -ForegroundColor Red
-        Write-Log -Level ERROR -Message "Failed to update device name for device ID $DeviceId`: $_ with SN: $serialNumber" -logfile $csvLogPath
         return $false
     }
 }
@@ -325,6 +323,14 @@ try {
             continue
         }
 
+        # Rename device
+        $NewName = "Sysco-" + $intuneDevice.deviceType + "-Serial:" + $serialNumber
+        $renameSuccess = Set-DeviceName -DeviceId $intuneDevice.Id -NewName $NewName -serialNumber $serialNumber
+        if (-not $renameSuccess) {
+            Write-Warning "Failed to rename device $serialNumber"
+            $DeviceRenameErrorCount++
+            continue
+        }
         # Get corresponding Entra device
         $entraDevice = Get-EntraDeviceFromIntuneDevice -IntuneDevice $intuneDevice
 
@@ -351,6 +357,7 @@ try {
     Write-Host "Successfully added to groups: $successCount" -ForegroundColor Green
     Write-Host "Intune devices not found: $deviceNotFoundCount" -ForegroundColor Yellow
     Write-Host "Entra devices not found: $entraDeviceNotFoundCount" -ForegroundColor Yellow
+    Write-Host "Device rename errors: $DeviceRenameErrorCount" -ForegroundColor Yellow
     Write-Host "Errors encountered: $errorCount" -ForegroundColor Red
 
     if ($WhatIf) {
