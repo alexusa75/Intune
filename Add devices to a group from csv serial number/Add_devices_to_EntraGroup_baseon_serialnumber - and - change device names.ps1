@@ -222,8 +222,8 @@ function Set-DeviceName {
 
             # Use the correct endpoint with the setDeviceName action
             $uri = "https://graph.microsoft.com/beta/deviceManagement/managedDevices('$DeviceId')/setDeviceName"
-            #Invoke-MgGraphRequest -Method POST -Uri $uri -Body $body -ContentType "application/json" -ErrorAction Stop
-            Write-Host "Invoke-MgGraphRequest Renaming device ID $DeviceId to $NewName" -ForegroundColor Cyan
+            Invoke-MgGraphRequest -Method POST -Uri $uri -Body $body -ContentType "application/json" -ErrorAction Stop
+            #Write-Host "Invoke-MgGraphRequest Renaming device ID $DeviceId to $NewName" -ForegroundColor Cyan
 
             Write-Host "Device name updated to $NewName for device ID $DeviceId" -ForegroundColor Green
             return $true
