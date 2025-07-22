@@ -81,7 +81,7 @@ function Connect-ToMSGraph {
 }
 
 # Function to get Intune device by serial number
-function Get-DeviceBySerialNumber {
+function Get-DeviceBySerialNumber_old {
     param([string]$SerialNumber)
 
     try {
@@ -120,6 +120,62 @@ function Get-DeviceBySerialNumber {
         return $null
     }
 }
+
+function Get-DeviceBySerialNumber {
+    param([string]$SerialNumber)
+
+    try {
+        Write-Host "Searching for Intune device with serial number: $SerialNumber" -ForegroundColor Gray
+
+        # Method 1: Direct filter by serialNumber using Graph API beta endpoint with select
+        $filterQuery = "serialNumber eq '$SerialNumber'"
+        $selectQuery = "id,deviceName,deviceType,serialNumber,azureADDeviceId,operatingSystem,osVersion,manufacturer,model"
+        $uri = "https://graph.microsoft.com/beta/deviceManagement/managedDevices?`$filter=$filterQuery&`$select=$selectQuery"
+
+        $response = Invoke-MgGraphRequest -Uri $uri -Method GET -ErrorAction SilentlyContinue
+        $device = $response.value
+
+        if ($null -eq $device -or $device.Count -eq 0) {
+            Write-Host "Direct filter search failed, trying alternative search..." -ForegroundColor Gray
+
+            # Method 2: Get all devices and filter (use with caution in large environments)
+            $allDevicesUri = "https://graph.microsoft.com/beta/deviceManagement/managedDevices?`$select=$selectQuery"
+            $allResponse = Invoke-MgGraphRequest -Uri $allDevicesUri -Method GET -ErrorAction SilentlyContinue
+
+            # Handle pagination if there are many devices
+            $allDevices = @()
+            $allDevices += $allResponse.value
+
+            # Check if there are more pages
+            while ($allResponse.'@odata.nextLink') {
+                $allResponse = Invoke-MgGraphRequest -Uri $allResponse.'@odata.nextLink' -Method GET -ErrorAction SilentlyContinue
+                $allDevices += $allResponse.value
+            }
+
+            $device = $allDevices | Where-Object { $_.serialNumber -eq $SerialNumber }
+        }
+
+        if ($null -eq $device -or $device.Count -eq 0) {
+            Write-Host "Device with serial number $SerialNumber not found in Intune" -ForegroundColor Yellow
+            return $null
+        }
+
+        # If multiple devices found (shouldn't happen with serial numbers, but just in case)
+        if ($device -is [array] -and $device.Count -gt 1) {
+            Write-Warning "Multiple devices found with serial number $SerialNumber. Using first match."
+            $device = $device[0]
+        }
+
+        Write-Host "Found Intune device: $($device.deviceName) (ID: $($device.id), Azure AD Device ID: $($device.azureADDeviceId), Device Type: $($device.deviceType))" -ForegroundColor Green
+        return $device
+
+    }
+    catch {
+        Write-Warning "Error searching for Intune device with serial number $SerialNumber : $($_.Exception.Message)"
+        return $null
+    }
+}
+
 
 # Function to get corresponding Entra device from Intune device
 function Get-EntraDeviceFromIntuneDevice {
@@ -324,7 +380,7 @@ try {
         }
 
         # Rename device
-        $NewName = "Sysco-" + $intuneDevice.deviceType + "-Serial-" + $serialNumber
+        $NewName = "Sysco-" + $intuneDevice.deviceType + "-" + $serialNumber
         $renameSuccess = Set-DeviceName -DeviceId $intuneDevice.Id -NewName $NewName -serialNumber $serialNumber
         if (-not $renameSuccess) {
             Write-Warning "Failed to rename device $serialNumber"
